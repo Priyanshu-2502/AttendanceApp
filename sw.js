@@ -1,68 +1,62 @@
 // Service Worker for Face Detection Attendance App
-const CACHE_NAME = 'face-detection-app-v1';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/script.js',
-  '/face-api.min.js',
-  '/models/tiny_face_detector_model-weights_manifest.json',
-  '/models/tiny_face_detector_model-shard1.bin'
+const CACHE_NAME = 'face-detection-app-v3';
+const PRECACHE_URLS = [
+  'index.html',
+  'script.js',
+  'face-api.min.js',
+  'models/tiny_face_detector_model-weights_manifest.json',
+  'models/tiny_face_detector_model-shard1.bin'
 ];
 
-// Install event - cache all required files
+// Install event - pre-cache essential assets and activate immediately
 self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS))
   );
 });
 
-// Fetch event - serve from cache, fall back to network
+// Fetch event
+// Use network-first for HTML to always get latest UI, cache-first for assets
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).then(
-          response => {
-            // Check if we received a valid response
-            if(!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
+  const req = event.request;
 
-            // Clone the response
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          }
-        );
-      })
-  );
-});
-
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
+  // Handle navigation requests (HTML)
+  if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+          return res;
         })
-      );
+        .catch(() => caches.match(req).then(r => r || caches.match('index.html')))
+    );
+    return;
+  }
+
+  // For other requests, try cache first, then network
+  event.respondWith(
+    caches.match(req).then(cached => {
+      if (cached) return cached;
+      return fetch(req).then(res => {
+        // Only cache valid basic responses
+        if (!res || res.status !== 200 || res.type !== 'basic') return res;
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+        return res;
+      }).catch(() => cached);
     })
   );
+});
+
+// Activate event - cleanup old caches and take control
+self.addEventListener('activate', event => {
+  const whitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.map(k => !whitelist.includes(k) && caches.delete(k))
+    ))
+  );
+  self.clients.claim();
 });

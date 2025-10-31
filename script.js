@@ -456,8 +456,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('Mobile device detected:', isMobile);
   
   // Add event listeners for fullscreen
-  fullscreenBtn.addEventListener('click', toggleFullscreen);
-  document.addEventListener('fullscreenchange', updateFullscreenButton);
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
+  }
   
   // Add event listeners for orientation changes
   window.addEventListener('orientationchange', handleOrientationChange);
@@ -580,8 +582,12 @@ autoBtn.addEventListener('click', () => {
 });
 
 // Flip camera button
-flipBtn.addEventListener('click', async () => {
-  flipBtn.style.transform = 'scale(0.95)';
-  setTimeout(() => { flipBtn.style.transform = 'scale(1)'; }, 200);
-  await flipCamera();
-});
+if (flipBtn) {
+  flipBtn.addEventListener('click', async () => {
+    flipBtn.style.transform = 'scale(0.95)';
+    setTimeout(() => { flipBtn.style.transform = 'scale(1)'; }, 200);
+    await flipCamera();
+  });
+} else {
+  console.warn('Flip Camera button not found in DOM.');
+}
