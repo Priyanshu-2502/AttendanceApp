@@ -9,6 +9,7 @@ const autoBtn = document.getElementById('autoBtn');
 const overlay = document.getElementById('overlay');
 const videoWrap = document.getElementById('videoWrap');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
+const flipBtn = document.getElementById('flipBtn');
 
 // Create popup animation element with enhanced styling
 const popup = document.createElement('div');
@@ -36,6 +37,10 @@ let detectionTimeout;
 let scanCooldown = false;
 let isFullscreen = false;
 let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+let currentStream = null;
+let videoInputDevices = [];
+let currentDeviceIndex = 0;
+let currentFacingMode = 'user';
 
 // Set up canvas for drawing face detection box
 const canvas = overlay;
@@ -129,24 +134,41 @@ async function loadModels() {
 }
 
 // Start webcam
-async function startVideo() {
+async function startVideo(options = {}) {
   try {
     // Optimize video constraints based on device
-    const constraints = {
-      video: isMobile ? 
-        { 
-          facingMode: 'user',
-          width: { ideal: 480 },
-          height: { ideal: 640 }
-        } : 
-        { 
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
-    };
+    let videoConstraints;
+    if (options.deviceId) {
+      videoConstraints = {
+        deviceId: { exact: options.deviceId },
+        width: { ideal: isMobile ? 640 : 640 },
+        height: { ideal: isMobile ? 480 : 480 }
+      };
+    } else if (options.facingMode) {
+      videoConstraints = {
+        facingMode: options.facingMode,
+        width: { ideal: isMobile ? 640 : 640 },
+        height: { ideal: isMobile ? 480 : 480 }
+      };
+    } else {
+      videoConstraints = isMobile ? {
+        facingMode: currentFacingMode,
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      } : {
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      };
+    }
+
+    const constraints = { video: videoConstraints, audio: false };
     
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    video.srcObject = stream;
+    // Stop any existing stream
+    if (currentStream) {
+      currentStream.getTracks().forEach(t => t.stop());
+    }
+    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = currentStream;
     
     // Set canvas size to match video
     video.addEventListener('loadedmetadata', () => {
@@ -175,6 +197,54 @@ async function startVideo() {
   } catch (error) {
     console.error('❌ Camera access denied:', error);
     statusDisplay.textContent = 'Camera access denied';
+    statusDisplay.style.color = '#ef4444';
+  }
+}
+
+// Enumerate available cameras
+async function loadCameras() {
+  try {
+    // iOS Safari requires permission before labels become available
+    if (!currentStream) {
+      await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    videoInputDevices = devices.filter(d => d.kind === 'videoinput');
+    console.log('Available cameras:', videoInputDevices.map(d => ({ label: d.label, deviceId: d.deviceId })));
+  } catch (e) {
+    console.warn('Could not enumerate devices:', e);
+  }
+}
+
+// Flip between cameras
+async function flipCamera() {
+  try {
+    await loadCameras();
+    if (videoInputDevices.length > 1) {
+      // Cycle through device list
+      currentDeviceIndex = (currentDeviceIndex + 1) % videoInputDevices.length;
+      const nextDeviceId = videoInputDevices[currentDeviceIndex].deviceId;
+      console.log('Switching to device:', videoInputDevices[currentDeviceIndex].label || nextDeviceId);
+      statusDisplay.textContent = 'Switching camera...';
+      statusDisplay.style.color = '#60a5fa';
+      await startVideo({ deviceId: nextDeviceId });
+    } else {
+      // Fallback: toggle facingMode
+      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+      console.log('Toggling facingMode to:', currentFacingMode);
+      statusDisplay.textContent = 'Switching camera...';
+      statusDisplay.style.color = '#60a5fa';
+      await startVideo({ facingMode: currentFacingMode });
+    }
+    // Clear overlay and resize canvas after switching
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    resizeCanvas();
+    statusDisplay.textContent = currentFacingMode === 'environment' ? 'Back camera active' : 'Front camera active';
+    statusDisplay.style.color = '#10b981';
+  } catch (err) {
+    console.error('Error flipping camera:', err);
+    statusDisplay.textContent = 'Error switching camera';
     statusDisplay.style.color = '#ef4444';
   }
 }
@@ -408,6 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   statusDisplay.style.color = '#f59e0b';
   
   await startVideo();
+  await loadCameras();
   
   // Initial orientation check
   checkOrientation();
@@ -506,4 +577,11 @@ autoBtn.addEventListener('click', () => {
     statusDisplay.textContent = 'Auto mode disabled';
     statusDisplay.style.color = '#60a5fa';
   }
+});
+
+// Flip camera button
+flipBtn.addEventListener('click', async () => {
+  flipBtn.style.transform = 'scale(0.95)';
+  setTimeout(() => { flipBtn.style.transform = 'scale(1)'; }, 200);
+  await flipCamera();
 });
