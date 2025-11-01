@@ -136,28 +136,32 @@ async function loadModels() {
 // Start webcam
 async function startVideo(options = {}) {
   try {
+    // Set status while loading
+    statusDisplay.textContent = 'Starting camera...';
+    statusDisplay.style.color = '#f59e0b';
+    
     // Optimize video constraints based on device
     let videoConstraints;
     if (options.deviceId) {
       videoConstraints = {
         deviceId: { exact: options.deviceId },
-        width: { ideal: isMobile ? 640 : 640 },
-        height: { ideal: isMobile ? 480 : 480 }
+        width: { ideal: isMobile ? 720 : 1280 },
+        height: { ideal: isMobile ? 480 : 720 }
       };
     } else if (options.facingMode) {
       videoConstraints = {
         facingMode: options.facingMode,
-        width: { ideal: isMobile ? 640 : 640 },
-        height: { ideal: isMobile ? 480 : 480 }
+        width: { ideal: isMobile ? 720 : 1280 },
+        height: { ideal: isMobile ? 480 : 720 }
       };
     } else {
       videoConstraints = isMobile ? {
         facingMode: currentFacingMode,
-        width: { ideal: 640 },
+        width: { ideal: 720 },
         height: { ideal: 480 }
       } : {
-        width: { ideal: 640 },
-        height: { ideal: 480 }
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
       };
     }
 
@@ -167,7 +171,32 @@ async function startVideo(options = {}) {
     if (currentStream) {
       currentStream.getTracks().forEach(t => t.stop());
     }
-    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    
+    // Get camera stream with retry mechanism
+    try {
+      currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      console.warn('First camera attempt failed:', err.message);
+      
+      // If device ID failed, try facingMode as fallback
+      if (options.deviceId) {
+        console.log('Trying fallback to facingMode');
+        constraints.video = {
+          facingMode: currentFacingMode,
+          width: { ideal: isMobile ? 720 : 1280 },
+          height: { ideal: isMobile ? 480 : 720 }
+        };
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } else {
+        // If facingMode failed, try with basic constraints
+        console.log('Trying basic video constraints');
+        currentStream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: false 
+        });
+      }
+    }
+    
     video.srcObject = currentStream;
     
     // Set canvas size to match video
@@ -179,11 +208,12 @@ async function startVideo(options = {}) {
     video.addEventListener('loadeddata', () => {
       console.log('Video loaded and ready');
       statusDisplay.textContent = 'Camera ready';
+      statusDisplay.style.color = '#10b981';
       videoWrap.classList.add('pulse');
       setTimeout(() => videoWrap.classList.remove('pulse'), 2000);
     });
     
-    // Start playing the video
+    // Start playing the video with error handling
     video.play().catch(e => {
       console.error('Error playing video:', e);
       
@@ -191,6 +221,18 @@ async function startVideo(options = {}) {
       if (isMobile && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
         statusDisplay.textContent = 'Tap "Scan" to activate camera';
         statusDisplay.style.color = '#f59e0b';
+        
+        // Add tap-to-play handler for iOS
+        video.onclick = async () => {
+          try {
+            await video.play();
+            statusDisplay.textContent = 'Camera ready';
+            statusDisplay.style.color = '#10b981';
+            video.onclick = null;
+          } catch (e) {
+            console.error('Play on tap failed:', e);
+          }
+        };
       }
     });
     
@@ -314,7 +356,7 @@ function drawDetection(detection) {
   }
 }
 
-// Detect face
+// Detect face in video stream - optimized for mobile
 async function detectFace() {
   if (!scanning) return;
   
@@ -329,12 +371,20 @@ async function detectFace() {
       return;
     }
     
+    // Skip frames on mobile for better performance
+    if (isMobile && Math.random() > 0.7) {
+      if (autoMode) {
+        requestAnimationFrame(detectFace);
+      }
+      return;
+    }
+    
     // Detect face with optimized settings for mobile
     const detection = await faceapi.detectSingleFace(
       video,
       new faceapi.TinyFaceDetectorOptions({ 
         scoreThreshold: 0.5,
-        inputSize: isMobile ? 224 : 320 // Smaller input size for mobile
+        inputSize: isMobile ? 160 : 320 // Even smaller input size for mobile
       })
     );
 
@@ -366,7 +416,7 @@ async function detectFace() {
           scanning = true;
           detectFace();
         }
-      }, isMobile ? 2000 : 2500); // Shorter cooldown on mobile
+      }, isMobile ? 1500 : 2500); // Even shorter cooldown on mobile for better responsiveness
     } else {
       // No face detected
       lastCount = 0;
@@ -379,8 +429,8 @@ async function detectFace() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       if (autoMode) {
-        // Continue scanning in auto mode
-        requestAnimationFrame(detectFace);
+        // Continue scanning in auto mode with adaptive frame rate
+        setTimeout(() => requestAnimationFrame(detectFace), isMobile ? 100 : 50);
       } else {
         scanning = false;
       }
@@ -389,7 +439,15 @@ async function detectFace() {
     console.error('Detection error:', error);
     statusDisplay.textContent = 'Detection error';
     statusDisplay.style.color = '#ef4444';
-    scanning = false;
+    // Try to recover with longer delay on mobile
+    if (autoMode) {
+      setTimeout(() => {
+        scanning = true;
+        detectFace();
+      }, isMobile ? 800 : 500);
+    } else {
+      scanning = false;
+    }
   }
 }
 
