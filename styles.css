@@ -3,7 +3,7 @@
     --secondary-color: #764ba2;
     --success-color: #4CAF50;
     --error-color: #f44336;
-    --text-dark: #4ef0d2;
+    --text-dark: #000000;
     --text-light: #51f2ed;
     --bg-light: #f8f9fa;
     --white: #ffffff;
@@ -61,7 +61,7 @@ input[type="text"]:focus,
 input[type="password"]:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgb(71, 206, 218);
+    box-shadow: 0 0 0 3px rgb(65, 49, 96);
 }
 
 button {
@@ -80,7 +80,7 @@ button {
 
 button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgb(102, 214, 234);
+    box-shadow: 0 4px 12px rgb(100, 71, 144);
 }
 
 .error-message {
