@@ -604,6 +604,15 @@ resetBtn.addEventListener('click', async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ class: selectedClass, date: today, count: totalFaces })
       });
+      // Also cache locally so Total page can show immediately even if server fetch fails
+      try {
+        const cache = JSON.parse(localStorage.getItem('attendanceCache') || '{}');
+        cache[selectedClass] = cache[selectedClass] || {};
+        cache[selectedClass][today] = totalFaces;
+        localStorage.setItem('attendanceCache', JSON.stringify(cache));
+      } catch (e) {
+        console.warn('Failed to update local attendance cache', e);
+      }
       console.log(`Saved attendance for class ${selectedClass} on ${today}: ${totalFaces}`);
       statusDisplay.textContent = 'Count saved & reset';
   } else {
@@ -636,6 +645,15 @@ async function saveCurrentCount() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ class: selectedClass, date: today, count: totalFaces })
   });
+  // mirror to local cache
+  try {
+    const cache = JSON.parse(localStorage.getItem('attendanceCache') || '{}');
+    cache[selectedClass] = cache[selectedClass] || {};
+    cache[selectedClass][today] = totalFaces;
+    localStorage.setItem('attendanceCache', JSON.stringify(cache));
+  } catch (e) {
+    console.warn('Failed to update local attendance cache', e);
+  }
   console.log(`Auto-saved attendance for class ${selectedClass} on ${today}: ${totalFaces}`);
 }
 

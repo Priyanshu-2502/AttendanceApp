@@ -128,11 +128,28 @@
         });
 
         async function displayAttendance(className, date) {
-            // fetch the full date->count map for the class, then read the selected date
-            const res = await fetch(`/api/attendance/${className}`, { cache: 'no-store' });
-            const attendanceData = await res.json();
-            const count = (attendanceData && attendanceData[date]) ? attendanceData[date] : 0;
-            document.getElementById('totalCount').textContent = count;
+            const totalEl = document.getElementById('totalCount');
+            let count;
+            try {
+                // fetch the full date->count map for the class, then read the selected date
+                const res = await fetch(`/api/attendance/${className}`, { cache: 'no-store' });
+                const attendanceData = await res.json();
+                count = (attendanceData && attendanceData[date] !== undefined) ? attendanceData[date] : undefined;
+            } catch (e) {
+                console.warn('Server fetch failed, will try local cache', e);
+            }
+
+            if (typeof count !== 'number') {
+                // fallback to local cache saved on reset/save
+                try {
+                    const cache = JSON.parse(localStorage.getItem('attendanceCache') || '{}');
+                    count = (cache[className] && cache[className][date]) ? cache[className][date] : 0;
+                } catch (e) {
+                    count = 0;
+                }
+            }
+
+            totalEl.textContent = count;
         }
 
         function goBack() {

@@ -20,7 +20,8 @@ const server = http.createServer((req, res) => {
   // API endpoints
   if (req.url.startsWith('/api/attendance/') && req.method === 'GET') {
     // GET /api/attendance/:className  (single class)
-    const className = decodeURIComponent(req.url.split('/')[3]);
+    const pathname = req.url.split('?')[0];
+    const className = decodeURIComponent(pathname.split('/')[3]);
     const db = readDB();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify(db[className] || {}));
