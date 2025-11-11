@@ -145,23 +145,23 @@ async function startVideo(options = {}) {
     if (options.deviceId) {
       videoConstraints = {
         deviceId: { exact: options.deviceId },
-        width: { ideal: isMobile ? 720 : 1280 },
-        height: { ideal: isMobile ? 480 : 720 }
+        width: { ideal: isMobile ? 1280 : 1920 },
+        height: { ideal: isMobile ? 720 : 1080 }
       };
     } else if (options.facingMode) {
       videoConstraints = {
         facingMode: options.facingMode,
-        width: { ideal: isMobile ? 720 : 1280 },
-        height: { ideal: isMobile ? 480 : 720 }
+        width: { ideal: isMobile ? 1280 : 1920 },
+        height: { ideal: isMobile ? 720 : 1080 }
       };
     } else {
       videoConstraints = isMobile ? {
         facingMode: currentFacingMode,
-        width: { ideal: 720 },
-        height: { ideal: 480 }
-      } : {
         width: { ideal: 1280 },
         height: { ideal: 720 }
+      } : {
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
       };
     }
 
@@ -383,8 +383,8 @@ async function detectFace() {
     const detection = await faceapi.detectSingleFace(
       video,
       new faceapi.TinyFaceDetectorOptions({ 
-        scoreThreshold: 0.5,
-        inputSize: isMobile ? 160 : 320 // Even smaller input size for mobile
+        scoreThreshold: 0.35,
+        inputSize: isMobile ? 320 : 416 // Larger input size to detect smaller/farther faces
       })
     );
 
@@ -569,16 +569,18 @@ startBtn.addEventListener('click', () => {
   detectFace();
 });
 
-resetBtn.addEventListener('click', () => {
+resetBtn.addEventListener('click', async () => {
   console.log('Reset button clicked');
 
-  // Save the current count to localStorage before resetting
+  // Save the current count to server before resetting
   const selectedClass = localStorage.getItem('selectedClass');
   if (selectedClass) {
       const today = new Date().toISOString().split('T')[0];
-      let attendanceData = JSON.parse(localStorage.getItem(`attendance_${selectedClass}`)) || {};
-      attendanceData[today] = totalFaces;
-      localStorage.setItem(`attendance_${selectedClass}`, JSON.stringify(attendanceData));
+      await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class: selectedClass, date: today, count: totalFaces })
+      });
       console.log(`Saved attendance for class ${selectedClass} on ${today}: ${totalFaces}`);
       statusDisplay.textContent = 'Count saved & reset';
   } else {
@@ -599,6 +601,38 @@ resetBtn.addEventListener('click', () => {
   counterDisplay.style.textShadow = '0 0 20px rgba(16, 185, 129, 0.2)';
 });
 
+// ---------- auto-save helpers ----------
+async function saveCurrentCount() {
+  const selectedClass = localStorage.getItem('selectedClass');
+  if (!selectedClass) return;
+  const today = new Date().toISOString().split('T')[0];
+  // save to server
+  await fetch('/api/attendance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ class: selectedClass, date: today, count: totalFaces })
+  });
+  console.log(`Auto-saved attendance for class ${selectedClass} on ${today}: ${totalFaces}`);
+}
+
+// auto-save when user leaves the page
+window.addEventListener('beforeunload', saveCurrentCount);
+// auto-save after 3 min of inactivity (no face detected)
+let idleTimer;
+function resetIdleTimer() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(saveCurrentCount, 3 * 60 * 1000); // 3 min
+}
+resetIdleTimer(); // start on load
+
+// hook into detectFace to reset timer on every successful detection
+const originalDetectFace = detectFace;
+detectFace = function() {
+  resetIdleTimer();
+  return originalDetectFace.apply(this, arguments);
+};
+
+// ---------- existing clear button handler ----------
 clearBtn.addEventListener('click', () => {
   console.log('Clear button clicked');
   const ctx = canvas.getContext('2d');

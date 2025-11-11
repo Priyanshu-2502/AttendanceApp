@@ -81,6 +81,10 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('isLoggedIn')) {
+                window.location.href = 'login.html';
+                return;
+            }
             const selectedClass = localStorage.getItem('selectedClass');
             if (selectedClass) {
                 document.getElementById('classTitle').textContent = `Class ${selectedClass}th - Total Attendance`;
@@ -102,8 +106,10 @@
             displayAttendance(selectedClass, today);
         });
 
-        function displayAttendance(className, date) {
-            const attendanceData = JSON.parse(localStorage.getItem(`attendance_${className}`)) || {};
+        async function displayAttendance(className, date) {
+            // fetch from server
+            const res = await fetch(`/api/attendance/${className}`);
+            const attendanceData = await res.json();
             const count = attendanceData[date] || 0;
             document.getElementById('totalCount').textContent = count;
         }

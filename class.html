@@ -85,6 +85,10 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('isLoggedIn')) {
+                window.location.href = 'login.html';
+                return;
+            }
             const selectedClass = localStorage.getItem('selectedClass');
             if (selectedClass) {
                 document.getElementById('classTitle').textContent = `Class ${selectedClass}th`;

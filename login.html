@@ -22,6 +22,7 @@
             const password = document.getElementById('password').value;
 
             if (username === 'Neha' && password === '19@75') {
+                localStorage.setItem('isLoggedIn', 'true');
                 window.location.href = 'classes.html';
             } else {
                 showError('Invalid username or password');

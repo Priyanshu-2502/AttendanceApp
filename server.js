@@ -2,10 +2,54 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// Ensure attendance.json exists
+const DB_FILE = './attendance.json';
+if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '{}');
+
+// Helper: read or write the JSON DB
+function readDB() {
+  try {
+    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  } catch { return {}; }
+}
+function writeDB(data) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+}
+
 const server = http.createServer((req, res) => {
+  // API endpoints
+  if (req.url.startsWith('/api/attendance/') && req.method === 'GET') {
+    // GET /api/attendance/:class  ->  { date: count, ... }
+    const cls = req.url.split('/')[3];
+    const db = readDB();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(db[cls] || {}));
+  }
+  if (req.url === '/api/attendance' && req.method === 'POST') {
+    // POST { class, date, count }  ->  save
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { class: cls, date, count } = JSON.parse(body);
+        const db = readDB();
+        if (!db[cls]) db[cls] = {};
+        db[cls][date] = count;
+        writeDB(db);
+        res.writeHead(200);
+        res.end('{}');
+      } catch {
+        res.writeHead(400);
+        res.end('{}');
+      }
+    });
+    return;
+  }
+
+  // Static file serving
   let filePath = '.' + req.url;
   if (filePath === './') {
-    filePath = './index.html';
+    filePath = './login.html';
   }
 
   const extname = String(path.extname(filePath)).toLowerCase();

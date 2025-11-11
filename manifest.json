@@ -2,7 +2,7 @@
   "name": "Face Detection Attendance",
   "short_name": "Face Attendance",
   "description": "A face detection app for tracking attendance",
-  "start_url": "./index.html",
+  "start_url": "./login.html",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
