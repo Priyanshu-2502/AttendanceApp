@@ -129,7 +129,7 @@
 
         async function displayAttendance(className, date) {
             // fetch the full date->count map for the class, then read the selected date
-            const res = await fetch(`/api/attendance/${className}?v=${Date.now()}`);
+            const res = await fetch(`/api/attendance/${className}`, { cache: 'no-store' });
             const attendanceData = await res.json();
             const count = (attendanceData && attendanceData[date]) ? attendanceData[date] : 0;
             document.getElementById('totalCount').textContent = count;
@@ -141,7 +141,7 @@
 
         async function loadClassTotals() {
             try {
-                const res = await fetch('/api/attendance'); // { cls: total, ... }
+                const res = await fetch('/api/attendance', { cache: 'no-store' }); // { cls: total, ... }
                 const totals = await res.json();
                 const tbody = document.querySelector('#classTable tbody');
                 tbody.innerHTML = '';
