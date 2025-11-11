@@ -1,5 +1,5 @@
 // Service Worker for Face Detection Attendance App
-const CACHE_NAME = 'face-detection-app-v6';
+const CACHE_NAME = 'att-app-v9';
 const PRECACHE_URLS = [
   '/',
   '/login.html',
@@ -56,6 +56,12 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   
   const url = new URL(event.request.url);
+  
+  // Always bypass caching for API calls to get fresh attendance data
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   
   // Special handling for same-origin requests
   if (url.origin === self.location.origin) {

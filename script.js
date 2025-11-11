@@ -4,12 +4,14 @@ const startBtn = document.getElementById('startBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusDisplay = document.getElementById('status');
 const lastCountDisplay = document.getElementById('lastCount');
+const todayTotalDisplay = document.getElementById('todayTotal');
 const clearBtn = document.getElementById('clearBtn');
 const autoBtn = document.getElementById('autoBtn');
 const overlay = document.getElementById('overlay');
 const videoWrap = document.getElementById('videoWrap');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 const flipBtn = document.getElementById('flipBtn');
+const viewTotalBtn = document.getElementById('viewTotalBtn');
 
 // Create popup animation element with enhanced styling
 const popup = document.createElement('div');
@@ -41,6 +43,21 @@ let currentStream = null;
 let videoInputDevices = [];
 let currentDeviceIndex = 0;
 let currentFacingMode = 'user';
+
+// Helper: fetch and display today’s total for the current class
+async function updateTodayTotal() {
+  const cls = localStorage.getItem('selectedClass');
+  if (!cls) return;
+  try {
+    const res = await fetch(`/api/attendance/${encodeURIComponent(cls)}`);
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json(); // { "2023-10-05": 7, ... }
+    const today = new Date().toISOString().slice(0,10);
+    todayTotalDisplay.textContent = data[today] ?? 0;
+  } catch (e) {
+    todayTotalDisplay.textContent = '--';
+  }
+}
 
 // Set up canvas for drawing face detection box
 const canvas = overlay;
@@ -135,6 +152,7 @@ async function loadModels() {
 
 // Start webcam
 async function startVideo(options = {}) {
+  updateTodayTotal(); // show today’s total when camera starts
   try {
     // Set status while loading
     statusDisplay.textContent = 'Starting camera...';
@@ -398,6 +416,11 @@ async function detectFace() {
       // Animate counter
       animateCounter(totalFaces);
       lastCountDisplay.textContent = lastCount;
+      // Debounced save so same-day total appears in Total Attendance
+      if (typeof saveCurrentCountDebounced === 'function') {
+        saveCurrentCountDebounced();
+      }
+      updateTodayTotal(); // refresh today’s total after each increment
       
       // Draw detection box
       drawDetection(detection);
@@ -590,6 +613,7 @@ resetBtn.addEventListener('click', async () => {
   totalFaces = 0;
   counterDisplay.textContent = '0';
   statusDisplay.style.color = '#f59e0b';
+  updateTodayTotal(); // refresh today’s total after reset
   
   // Add button press animation
   resetBtn.style.transform = 'scale(0.95)';
@@ -613,6 +637,13 @@ async function saveCurrentCount() {
     body: JSON.stringify({ class: selectedClass, date: today, count: totalFaces })
   });
   console.log(`Auto-saved attendance for class ${selectedClass} on ${today}: ${totalFaces}`);
+}
+
+// Debounce frequent saves to reduce server writes
+let saveTimeout;
+function saveCurrentCountDebounced() {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveCurrentCount, 3000);
 }
 
 // auto-save when user leaves the page
@@ -689,6 +720,13 @@ autoBtn.addEventListener('click', () => {
     statusDisplay.textContent = 'Auto mode disabled';
     statusDisplay.style.color = '#60a5fa';
   }
+});
+
+// Force-save current count before navigating to Total Attendance
+viewTotalBtn.addEventListener('click', async (e) => {
+  e.preventDefault(); // pause navigation
+  await saveCurrentCount(); // ensure today’s total is on server
+  window.location = viewTotalBtn.href; // now go
 });
 
 // Flip camera button

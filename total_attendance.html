@@ -78,6 +78,19 @@
         <p class="count-display">Total Count: <span id="totalCount">--</span></p>
     </div>
 
+    <div class="attendance-summary" style="margin-top: 2rem;">
+        <h2>Overall Totals by Class</h2>
+        <table id="classTable" style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--card-border);">
+                    <th style="text-align:left; padding: 0.5rem 0;">Class</th>
+                    <th style="text-align:right; padding: 0.5rem 0;">Total Faces</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -104,18 +117,44 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('selectedDate').textContent = today;
             displayAttendance(selectedClass, today);
+            loadClassTotals(); // load overall totals
+
+            // refresh every 5 seconds while page is open
+            setInterval(() => {
+                const currentDate = document.getElementById('selectedDate').textContent;
+                if (currentDate) displayAttendance(selectedClass, currentDate);
+                loadClassTotals(); // also refresh totals
+            }, 5000);
         });
 
         async function displayAttendance(className, date) {
-            // fetch from server
-            const res = await fetch(`/api/attendance/${className}`);
+            // fetch the full date->count map for the class, then read the selected date
+            const res = await fetch(`/api/attendance/${className}?v=${Date.now()}`);
             const attendanceData = await res.json();
-            const count = attendanceData[date] || 0;
+            const count = (attendanceData && attendanceData[date]) ? attendanceData[date] : 0;
             document.getElementById('totalCount').textContent = count;
         }
 
         function goBack() {
             window.location.href = 'class.html';
+        }
+
+        async function loadClassTotals() {
+            try {
+                const res = await fetch('/api/attendance'); // { cls: total, ... }
+                const totals = await res.json();
+                const tbody = document.querySelector('#classTable tbody');
+                tbody.innerHTML = '';
+                for (const cls in totals) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="padding: 0.5rem 0;">${cls}</td>
+                        <td style="text-align:right; padding: 0.5rem 0;">${totals[cls]}</td>`;
+                    tbody.appendChild(row);
+                }
+            } catch (e) {
+                console.error('Failed to load class totals', e);
+            }
         }
     </script>
 </body>

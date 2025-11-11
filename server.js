@@ -19,11 +19,21 @@ function writeDB(data) {
 const server = http.createServer((req, res) => {
   // API endpoints
   if (req.url.startsWith('/api/attendance/') && req.method === 'GET') {
-    // GET /api/attendance/:class  ->  { date: count, ... }
-    const cls = req.url.split('/')[3];
+    // GET /api/attendance/:className  (single class)
+    const className = decodeURIComponent(req.url.split('/')[3]);
     const db = readDB();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify(db[cls] || {}));
+    return res.end(JSON.stringify(db[className] || {}));
+  }
+  if (req.url === '/api/attendance' && req.method === 'GET') {
+    // GET /api/attendance  (all classes aggregated totals)
+    const db = readDB();
+    const totals = {};
+    for (const cls in db) {
+      totals[cls] = Object.values(db[cls]).reduce((s, v) => s + v, 0);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(totals));
   }
   if (req.url === '/api/attendance' && req.method === 'POST') {
     // POST { class, date, count }  ->  save
