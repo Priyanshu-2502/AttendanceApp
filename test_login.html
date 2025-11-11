@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login</title>
+</head>
+<body>
+    <h1>Test Login</h1>
+    <form onsubmit="testLogin(event)">
+        <input type="text" id="testUsername" placeholder="Username" value="admin">
+        <input type="password" id="testPassword" placeholder="Password" value="password">
+        <button type="submit">Login</button>
+    </form>
+    
+    <script>
+        function testLogin(event) {
+            event.preventDefault();
+            console.log('Test login function called');
+            alert('Test login called');
+            
+            const username = document.getElementById('testUsername').value;
+            const password = document.getElementById('testPassword').value;
+            
+            console.log('Username:', username);
+            console.log('Password:', password);
+            
+            if (username === 'admin' && password === 'password') {
+                alert('Login successful - redirecting to classes.html');
+                console.log('Redirecting to classes.html');
+                
+                // Simple redirect
+                window.location.href = 'classes.html';
+            } else {
+                alert('Login failed');
+            }
+        }
+    </script>
+</body>
+</html>

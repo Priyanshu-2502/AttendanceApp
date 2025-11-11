@@ -510,6 +510,11 @@ function addTouchFeedback() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  const selectedClass = localStorage.getItem('selectedClass');
+  if (selectedClass) {
+      document.getElementById('classTitle').textContent = `Class ${selectedClass}th - Attendance`;
+  }
+
   console.log('DOM loaded, initializing app...');
   console.log('Mobile device detected:', isMobile);
   
@@ -566,9 +571,22 @@ startBtn.addEventListener('click', () => {
 
 resetBtn.addEventListener('click', () => {
   console.log('Reset button clicked');
+
+  // Save the current count to localStorage before resetting
+  const selectedClass = localStorage.getItem('selectedClass');
+  if (selectedClass) {
+      const today = new Date().toISOString().split('T')[0];
+      let attendanceData = JSON.parse(localStorage.getItem(`attendance_${selectedClass}`)) || {};
+      attendanceData[today] = totalFaces;
+      localStorage.setItem(`attendance_${selectedClass}`, JSON.stringify(attendanceData));
+      console.log(`Saved attendance for class ${selectedClass} on ${today}: ${totalFaces}`);
+      statusDisplay.textContent = 'Count saved & reset';
+  } else {
+      statusDisplay.textContent = 'Counter reset';
+  }
+
   totalFaces = 0;
   counterDisplay.textContent = '0';
-  statusDisplay.textContent = 'Counter reset';
   statusDisplay.style.color = '#f59e0b';
   
   // Add button press animation

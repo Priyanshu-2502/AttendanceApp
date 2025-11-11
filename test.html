@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login Redirect</title>
+</head>
+<body>
+    <h1>Testing Login Redirect</h1>
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="testClasses()">Test Classes Page</button>
+    <div id="result"></div>
+
+    <script>
+        function testLogin() {
+            // Test the login function logic
+            const username = 'admin';
+            const password = 'password';
+            const fixedUsername = 'admin';
+            const fixedPassword = 'password';
+
+            if (username === fixedUsername && password === fixedPassword) {
+                document.getElementById('result').innerHTML = '<p style="color: green;">Login successful - would redirect to classes.html</p>';
+                // Simulate redirect
+                setTimeout(() => {
+                    window.location.href = 'classes.html';
+                }, 1000);
+            } else {
+                document.getElementById('result').innerHTML = '<p style="color: red;">Login failed</p>';
+            }
+        }
+
+        function testClasses() {
+            window.location.href = 'classes.html';
+        }
+    </script>
+</body>
+</html>

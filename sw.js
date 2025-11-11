@@ -1,13 +1,17 @@
 // Service Worker for Face Detection Attendance App
-const CACHE_NAME = 'face-detection-app-v4';
+const CACHE_NAME = 'face-detection-app-v6';
 const PRECACHE_URLS = [
   '/',
-  'index.html',
-  'script.js',
-  'face-api.min.js',
-  'manifest.json',
-  'models/tiny_face_detector_model-weights_manifest.json',
-  'models/tiny_face_detector_model-shard1.bin'
+  '/login.html',
+  '/classes.html',
+  '/class.html',
+  '/total_attendance.html',
+  '/index.html',
+  '/script.js',
+  '/face-api.min.js',
+  '/manifest.json',
+  '/models/tiny_face_detector_model-weights_manifest.json',
+  '/models/tiny_face_detector_model-shard1.bin'
 ];
 
 // Force immediate installation and activation
@@ -26,6 +30,26 @@ self.addEventListener('install', event => {
   );
 });
 
+// Clean up old caches
+self.addEventListener('activate', event => {
+  console.log('Service Worker activating');
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => {
+      console.log('Claiming clients');
+      return self.clients.claim();
+    })
+  );
+});
+
 // Fetch event - improved strategy for mobile
 self.addEventListener('fetch', event => {
   // Don't handle non-GET requests
@@ -38,6 +62,12 @@ self.addEventListener('fetch', event => {
     // For HTML documents - network first with cache fallback
     if (event.request.mode === 'navigate' || 
         (event.request.headers.get('accept') || '').includes('text/html')) {
+      // Exclude login and classes pages from caching
+      if (url.pathname.endsWith('/login.html') || url.pathname.endsWith('/classes.html')) {
+        event.respondWith(fetch(event.request));
+        return;
+      }
+
       event.respondWith(
         fetch(event.request)
           .then(response => {
